@@ -90,14 +90,15 @@ struct rst_info {
 #define EXCLUDE_WIFI
 //#define EXCLUDE_EEPROM
 #define EXCLUDE_LED_RING
+#define EXCLUDE_SOUND
 #define EXCLUDE_EGM96
 #define EXCLUDE_NRF905
 #define EXCLUDE_UATM
-#define EXCLUDE_LK8EX1
+//#define EXCLUDE_LK8EX1
 
-/* SoftRF/CC13XX PFLAU NMEA sentence extension(s) */
-#define PFLAU_EXT1_FMT  ",%06X,%d,%d,%d,%d"
-#define PFLAU_EXT1_ARGS ,ThisAircraft.addr,settings->rf_protocol,rx_packets_counter,tx_packets_counter,(int)(Battery_voltage()*100)
+/* SoftRF/CC13XX PFLAU NMEA sentence extension. In use by WebTop adapter */
+#define PFLAU_EXT1_FMT  ",%06X,%d,%d,%d"
+#define PFLAU_EXT1_ARGS ,ThisAircraft.addr,settings->rf_protocol,rx_packets_counter,tx_packets_counter
 
 #include "../../hal_conf_extra.h"   // Sketch-specific definitions are located there
 
@@ -182,6 +183,7 @@ extern SCSerial                 scSerial;
 #define MACRONIX_MX25R8035F     0xC228
 
 #define USE_OLED                 //  +5.5 kb
+//#define EXCLUDE_OLED_BARO_PAGE
 #define USE_GNSS_PSM
 
 //#define USE_BASICMAC

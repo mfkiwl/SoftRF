@@ -63,7 +63,7 @@ enum nRF52_board_id {
   NRF52_NORDIC_PCA10059,        /* reference low power board */
   NRF52_LILYGO_TECHO_REV_0,     /* 20-8-6 */
   NRF52_LILYGO_TECHO_REV_1,     /* 2020-12-12 */
-  NRF52_LILYGO_TECHO_REV_2      /* 2021-1-15 */
+  NRF52_LILYGO_TECHO_REV_2      /* 2021-3-16 */
 };
 
 struct rst_info {
@@ -119,6 +119,16 @@ struct rst_info {
                                hw_info.revision == 1 ? SOC_GPIO_LED_TECHO_REV_1_GREEN : \
                                hw_info.revision == 2 ? SOC_GPIO_LED_TECHO_REV_2_GREEN : \
                                SOC_GPIO_LED_PCA10059_STATUS)
+
+#define SOC_GPIO_LED_USBMSC   (hw_info.revision == 0 ? SOC_GPIO_LED_TECHO_REV_0_RED : \
+                               hw_info.revision == 1 ? SOC_GPIO_LED_TECHO_REV_1_RED : \
+                               hw_info.revision == 2 ? SOC_GPIO_LED_TECHO_REV_2_RED : \
+                               SOC_GPIO_LED_PCA10059_RED)
+
+#define SOC_GPIO_LED_BLE      (hw_info.revision == 0 ? SOC_GPIO_LED_TECHO_REV_0_BLUE : \
+                               hw_info.revision == 1 ? SOC_GPIO_LED_TECHO_REV_1_BLUE : \
+                               hw_info.revision == 2 ? SOC_GPIO_LED_TECHO_REV_2_BLUE : \
+                               SOC_GPIO_LED_PCA10059_BLUE)
 
 #define SOC_GPIO_PIN_BUZZER   SOC_UNUSED_PIN
 #define SOC_GPIO_PIN_BATTERY  _PINNUM(0, 4) // P0.04 (AIN2)
@@ -231,11 +241,20 @@ struct rst_info {
 //#define EXCLUDE_SX1276           //  -  3 kb
 
 //#define USE_OLED                 //  +    kb
+//#define EXCLUDE_OLED_BARO_PAGE
 #define USE_EPAPER                 //  +    kb
 
+/* Experimental */
+//#define USE_WEBUSB_SERIAL
+//#define USE_WEBUSB_SETTINGS
+//#define USE_USB_MIDI
+//#define USE_BLE_MIDI
+//#define EXCLUDE_NUS
+#define EXCLUDE_BOARD_SELF_DETECT
+
 /* SoftRF/nRF52 PFLAU NMEA sentence extension(s) */
-#define PFLAU_EXT1_FMT  ",%06X,%d,%d,%d,%d"
-#define PFLAU_EXT1_ARGS ,ThisAircraft.addr,settings->rf_protocol,rx_packets_counter,tx_packets_counter,(int)(Battery_voltage()*100)
+//#define PFLAU_EXT1_FMT  ",%06X,%d,%d,%d,%d"
+//#define PFLAU_EXT1_ARGS ,ThisAircraft.addr,settings->rf_protocol,rx_packets_counter,tx_packets_counter,(int)(Battery_voltage()*100)
 
 #if !defined(EXCLUDE_LED_RING)
 #include <Adafruit_NeoPixel.h>
@@ -247,42 +266,6 @@ extern Adafruit_NeoPixel strip;
 extern Uart Serial2;
 #endif
 
-typedef struct UI_Settings {
-    uint8_t  adapter;
-
-    uint8_t  connection:4;
-    uint8_t  units:2;
-    uint8_t  zoom:2;
-
-    uint8_t  protocol;
-    uint8_t  baudrate;
-    char     server  [18];
-    char     key     [18];
-
-    uint8_t  resvd1:2;
-    uint8_t  orientation:1;
-    uint8_t  adb:3;
-    uint8_t  idpref:2;
-
-    uint8_t  vmode:2;
-    uint8_t  voice:3;
-    uint8_t  aghost:3;
-
-    uint8_t  filter:4;
-    uint8_t  power_save:4;
-
-    uint32_t team;
-
-    uint8_t  resvd2;
-    uint8_t  resvd3;
-    uint8_t  resvd4;
-    uint8_t  resvd5;
-    uint8_t  resvd6;
-    uint8_t  resvd7;
-    uint8_t  resvd8;
-    uint8_t  resvd9;
-} __attribute__((packed)) ui_settings_t;
-
 extern PCF8563_Class *rtc;
 
 #if defined(USE_EPAPER)
@@ -292,8 +275,6 @@ typedef void EPD_Task_t;
 
 extern GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> *display;
 #endif /* USE_EPAPER */
-
-extern ui_settings_t *ui;
 
 #endif /* PLATFORM_NRF52_H */
 

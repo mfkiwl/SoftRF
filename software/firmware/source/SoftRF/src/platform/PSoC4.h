@@ -125,6 +125,8 @@ struct rst_info {
 #define SOC_GPIO_PIN_OLED_PWR Vext         // P3_2
 #define SOC_GPIO_PIN_BAT_CTL  VBAT_ADC_CTL // P3_3
 #define SOC_GPIO_PIN_BUTTON   USER_KEY     // P3_3
+
+#define SOC_GPIO_PIN_BMON_DIS GPIO7        // P3_7
 #else /* CubeCell_GPS */
 
 #define SOC_GPIO_PIN_LED      SOC_UNUSED_PIN
@@ -144,7 +146,7 @@ struct rst_info {
 #define EXCLUDE_GNSS_SONY
 #define EXCLUDE_GNSS_MTK
 //#define EXCLUDE_GNSS_GOKE
-#define EXCLUDE_GNSS_AT65
+//#define EXCLUDE_GNSS_AT65
 
 /* Component                         Cost */
 /* -------------------------------------- */
@@ -157,13 +159,19 @@ struct rst_info {
 #define EXCLUDE_MAVLINK          //  -    kb
 #define EXCLUDE_EGM96            //  - 16 kb
 #define EXCLUDE_LED_RING         //  -    kb
+#define EXCLUDE_SOUND
 
 #define USE_BASICMAC
 #define EXCLUDE_SX1276           //  -  3 kb
 
 #if defined(CubeCell_GPS)
 #define USE_OLED                 //  +    kb
+#define EXCLUDE_OLED_BARO_PAGE
 #endif
+
+/* SoftRF/PSoC PFLAU NMEA sentence extension. In use by WebTop adapter */
+#define PFLAU_EXT1_FMT  ",%06X,%d,%d,%d"
+#define PFLAU_EXT1_ARGS ,ThisAircraft.addr,settings->rf_protocol,rx_packets_counter,tx_packets_counter
 
 /* trade performance for flash memory usage (-4 Kb) */
 #define cosf(x)                 cos  ((double) (x))
@@ -171,6 +179,11 @@ struct rst_info {
 /* has no effect yet */
 //#define sqrtf(x)              sqrt ((double) (x))
 //#define atan2f(y,x)           atan2((double) (y), (double) (x))
+
+/*
+ * https://github.com/HelTecAutomation/ASR650x-Arduino/commit/01fea70929a44d9339af149650e7256059098b30
+ */
+//#define BAT_MON_DISABLE
 
 #if !defined(EXCLUDE_LED_RING)
 #include <CubeCell_NeoPixel.h>

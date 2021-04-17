@@ -72,6 +72,7 @@ HardwareSerial Serial3(SOC_GPIO_PIN_RX3,      SOC_GPIO_PIN_TX3);
 #error "This hardware platform is not supported!"
 #endif
 
+#if !defined(EXCLUDE_LED_RING)
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
 // Parameter 3 = pixel type flags, add together as needed:
@@ -81,6 +82,7 @@ HardwareSerial Serial3(SOC_GPIO_PIN_RX3,      SOC_GPIO_PIN_TX3);
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIX_NUM, SOC_GPIO_PIN_LED,
                               NEO_GRB + NEO_KHZ800);
+#endif /* EXCLUDE_LED_RING */
 
 static int stm32_board = STM32_BLUE_PILL; /* default */
 
@@ -228,28 +230,6 @@ static void STM32_setup()
 
 static void STM32_post_init()
 {
-  if (settings->nmea_out == NMEA_BLUETOOTH) {
-#if defined(USBD_USE_CDC) && !defined(DISABLE_GENERIC_SERIALUSB)
-    settings->nmea_out = NMEA_USB;
-#else
-    settings->nmea_out = NMEA_UART;
-#endif
-  }
-  if (settings->gdl90 == GDL90_BLUETOOTH) {
-#if defined(USBD_USE_CDC) && !defined(DISABLE_GENERIC_SERIALUSB)
-    settings->gdl90 = GDL90_USB;
-#else
-    settings->gdl90 = GDL90_UART;
-#endif
-  }
-  if (settings->d1090 == D1090_BLUETOOTH) {
-#if defined(USBD_USE_CDC) && !defined(DISABLE_GENERIC_SERIALUSB)
-    settings->d1090 = D1090_USB;
-#else
-    settings->d1090 = D1090_UART;
-#endif
-  }
-
 #if defined(ARDUINO_NUCLEO_L073RZ)
   if (hw_info.model == SOFTRF_MODEL_DONGLE) {
     Serial.println();
@@ -282,10 +262,6 @@ static void STM32_post_init()
   }
 #endif /* ARDUINO_NUCLEO_L073RZ */
 
-#if defined(USE_OLED)
-  OLED_info1();
-#endif /* USE_OLED */
-
   Serial.println(F("Data output device(s):"));
 
   Serial.print(F("NMEA   - "));
@@ -317,6 +293,10 @@ static void STM32_post_init()
 
   Serial.println();
   Serial.flush();
+
+#if defined(USE_OLED)
+  OLED_info1();
+#endif /* USE_OLED */
 }
 
 static void STM32_loop()
@@ -431,11 +411,22 @@ static long STM32_random(long howsmall, long howBig)
 
 static void STM32_Sound_test(int var)
 {
-  if (settings->volume != BUZZER_OFF) {
+  if (SOC_GPIO_PIN_BUZZER != SOC_UNUSED_PIN && settings->volume != BUZZER_OFF) {
     tone(SOC_GPIO_PIN_BUZZER, 440,  500); delay(500);
     tone(SOC_GPIO_PIN_BUZZER, 640,  500); delay(500);
     tone(SOC_GPIO_PIN_BUZZER, 840,  500); delay(500);
     tone(SOC_GPIO_PIN_BUZZER, 1040, 500); delay(600);
+  }
+}
+
+static void STM32_Sound_tone(int hz, uint8_t volume)
+{
+  if (SOC_GPIO_PIN_BUZZER != SOC_UNUSED_PIN && volume != BUZZER_OFF) {
+    if (hz > 0) {
+      tone(SOC_GPIO_PIN_BUZZER, hz, ALARM_TONE_MS);
+    } else {
+      noTone(SOC_GPIO_PIN_BUZZER);
+    }
   }
 }
 
@@ -458,6 +449,31 @@ static bool STM32_EEPROM_begin(size_t size)
   EEPROM.begin();
 
   return true;
+}
+
+static void STM32_EEPROM_extension()
+{
+  if (settings->nmea_out == NMEA_BLUETOOTH) {
+#if defined(USBD_USE_CDC) && !defined(DISABLE_GENERIC_SERIALUSB)
+    settings->nmea_out = NMEA_USB;
+#else
+    settings->nmea_out = NMEA_UART;
+#endif
+  }
+  if (settings->gdl90 == GDL90_BLUETOOTH) {
+#if defined(USBD_USE_CDC) && !defined(DISABLE_GENERIC_SERIALUSB)
+    settings->gdl90 = GDL90_USB;
+#else
+    settings->gdl90 = GDL90_UART;
+#endif
+  }
+  if (settings->d1090 == D1090_BLUETOOTH) {
+#if defined(USBD_USE_CDC) && !defined(DISABLE_GENERIC_SERIALUSB)
+    settings->d1090 = D1090_USB;
+#else
+    settings->d1090 = D1090_UART;
+#endif
+  }
 }
 
 static void STM32_SPI_begin()
@@ -533,19 +549,57 @@ static void STM32_Battery_setup()
 
 }
 
-static float STM32_Battery_voltage()
+static float STM32_Battery_param(uint8_t param)
 {
+  float rval, voltage;
+
+  switch (param)
+  {
+  case BATTERY_PARAM_THRESHOLD:
+    rval = hw_info.model == SOFTRF_MODEL_DONGLE ? BATTERY_THRESHOLD_LIPO   :
+                                                  BATTERY_THRESHOLD_NIMHX2;
+    break;
+
+  case BATTERY_PARAM_CUTOFF:
+    rval = hw_info.model == SOFTRF_MODEL_DONGLE ? BATTERY_CUTOFF_LIPO   :
+                                                  BATTERY_CUTOFF_NIMHX2;
+    break;
+
+  case BATTERY_PARAM_CHARGE:
+    voltage = Battery_voltage();
+    if (voltage < Battery_cutoff())
+      return 0;
+
+    if (voltage > 4.2)
+      return 100;
+
+    if (voltage < 3.6) {
+      voltage -= 3.3;
+      return (voltage * 100) / 3;
+    }
+
+    voltage -= 3.6;
+    rval = 10 + (voltage * 150 );
+    break;
+
+  case BATTERY_PARAM_VOLTAGE:
+  default:
+
 #ifdef __LL_ADC_CALC_VREFANALOG_VOLTAGE
-  int32_t Vref = (__LL_ADC_CALC_VREFANALOG_VOLTAGE(analogRead(AVREF), LL_ADC_RESOLUTION));
+    int32_t Vref = (__LL_ADC_CALC_VREFANALOG_VOLTAGE(analogRead(AVREF), LL_ADC_RESOLUTION));
 #else
-  int32_t Vref = (VREFINT * ADC_RANGE / analogRead(AVREF)); // ADC sample to mV
+    int32_t Vref = (VREFINT * ADC_RANGE / analogRead(AVREF)); // ADC sample to mV
 #endif
 
-  int32_t mV = (__LL_ADC_CALC_DATA_TO_VOLTAGE(Vref,
-                                              analogRead(SOC_GPIO_PIN_BATTERY),
-                                              LL_ADC_RESOLUTION));
+    int32_t mV = (__LL_ADC_CALC_DATA_TO_VOLTAGE(Vref,
+                                                analogRead(SOC_GPIO_PIN_BATTERY),
+                                                LL_ADC_RESOLUTION));
 
-  return mV * SOC_ADC_VOLTAGE_DIV / 1000.0;
+    rval = mV * SOC_ADC_VOLTAGE_DIV / 1000.0;
+    break;
+  }
+
+  return rval;
 }
 
 void STM32_GNSS_PPS_Interrupt_handler() {
@@ -737,6 +791,7 @@ const SoC_ops_t STM32_ops = {
   STM32_getFreeHeap,
   STM32_random,
   STM32_Sound_test,
+  STM32_Sound_tone,
   NULL,
   STM32_WiFi_set_param,
   STM32_WiFi_transmit_UDP,
@@ -744,6 +799,7 @@ const SoC_ops_t STM32_ops = {
   NULL,
   NULL,
   STM32_EEPROM_begin,
+  STM32_EEPROM_extension,
   STM32_SPI_begin,
   STM32_swSer_begin,
   STM32_swSer_enableRx,
@@ -758,7 +814,7 @@ const SoC_ops_t STM32_ops = {
   STM32_Display_loop,
   STM32_Display_fini,
   STM32_Battery_setup,
-  STM32_Battery_voltage,
+  STM32_Battery_param,
   STM32_GNSS_PPS_Interrupt_handler,
   STM32_get_PPS_TimeMarker,
   STM32_Baro_setup,
